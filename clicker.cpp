@@ -19,7 +19,7 @@ public:
     set_default_size(150,100);
     button1.set_label("БОНУС");
     button1.signal_clicked().connect([this](){
-      if ((100>a && a>30)||(a>100)){
+      if ((100>a && a>30)||(500>a && a>100)||(1500>a && a>500)){
         button1.set_label("Бонус просрочен!");
         button1.set_sensitive(false);
       }
@@ -31,9 +31,12 @@ public:
           case (100):
             a+=20;
             break;
-	  case (500):
-	    a+=100;
-	    break;
+      	  case (500):
+      	    a+=100;
+      	    break;
+          case (1500):
+            a+=100;
+            break;
         }
       m_signal_value_updated.emit(std::to_string(a));
       ofstream ifile("save", ios::out);
@@ -62,7 +65,32 @@ public:
     set_default_size(250,200);
     boox.set_orientation(Gtk::ORIENTATION_VERTICAL);
     add(boox);
+    Glib::RefPtr<Gdk::Pixbuf> pixbuf = Gdk::Pixbuf::create_from_file("./cat.jpg");
+    catpng.set(pixbuf);
     button.set_label(to_string(a));
+    button2.set_label(to_string(a));
+    button2.signal_clicked().connect([this](){
+      if (5000>a){
+        a+=50;
+      }
+      else if (10000> a){
+        a+=75;
+      }
+      else if (15000< a){
+        a+=100;
+      }
+      if (30000 <= a){
+        boox.pack_start(catpng, Gtk::SHRINK, Gtk::SHRINK, 0);
+        show_all();
+        set_title("Кыцик!");
+      }
+      ofstream ifile("save", ios::out);
+      if (ifile.is_open()){
+        ifile << to_string(a);
+      }
+      button.set_label(to_string(a));
+      button2.set_label(to_string(a));
+    });
     button.signal_clicked().connect([this](){
       a+=1;
       ofstream ifile("save", ios::out);
@@ -70,6 +98,7 @@ public:
         ifile << to_string(a);
       }
       button.set_label(to_string(a));
+      button2.set_label(to_string(a));
       switch (a){
         case 10:
           set_title("ВАУ");
@@ -79,16 +108,20 @@ public:
           break;
         case 30:
           clicker::callb();
-	  set_title("Твой первый бонус!");
+	        set_title("Твой первый бонус!");
           break;
         case 100:
-	  set_title("С юбилеем!");
+	        set_title("С юбилеем!");
           clicker::callb();
           break;
-	case 500:
-	  set_title("ЧЕГОО?! 500!");
-	  clicker::callb();
-	  break;
+      	case 500:
+      	  set_title("ЧЕГОО?! 500!");
+      	  clicker::callb();
+      	  break;
+        case 1500:
+          set_title("Ещё кнопка)");
+          boox.pack_end(button2, Gtk::EXPAND, Gtk::FILL, 0);
+          show_all();
       }
       if ((200>a && a>=100)){
         tid = Glib::signal_timeout().connect(
@@ -103,23 +136,42 @@ public:
         );
       }
       else if (a>=500){
-	tid = Glib::signal_timeout().connect(
-	  sigc::mem_fun(*this, &clicker::ont),
-	  10
-	);
+	     tid = Glib::signal_timeout().connect(
+	        sigc::mem_fun(*this, &clicker::ont),
+	        10
+	     );
+      }
+      else if (a>=1000){
+	     tid = Glib::signal_timeout().connect(
+	        sigc::mem_fun(*this, &clicker::ont),
+	        1
+	     );
+      }
+      if (30000 <= a){
+        boox.pack_start(catpng, Gtk::SHRINK, Gtk::SHRINK, 0);
+        show_all();
+        set_title("Кыцик!");
       }
     });
     label.set_label("GTK кликер!");
-    boox.pack_start(label,  Gtk::SHRINK, Gtk::SHRINK, 0);
+    boox.pack_start(label, Gtk::SHRINK, Gtk::SHRINK, 0);
     boox.pack_end(button, Gtk::EXPAND, Gtk::FILL, 0);
-
-    show_all_children();
+    if (a>1500){
+      boox.pack_start(button2, Gtk::EXPAND, Gtk::FILL, 0);
+      label.set_label("GtkClicker x2");
+    };
+    if (a>=30000){
+      boox.pack_start(catpng, Gtk::SHRINK, Gtk::SHRINK, 0);
+    }
+    show_all();
 
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
   };
 private:
   Gtk::Button button;
+  Gtk::Button button2;
   Gtk::Label label;
+  Gtk::Image catpng;
   bonus* bon;
   sigc::connection tid;
 protected:
