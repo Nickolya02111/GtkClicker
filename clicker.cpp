@@ -31,6 +31,9 @@ public:
           case (100):
             a+=20;
             break;
+	  case (500):
+	    a+=100;
+	    break;
         }
       m_signal_value_updated.emit(std::to_string(a));
       ofstream ifile("save", ios::out);
@@ -76,22 +79,34 @@ public:
           break;
         case 30:
           clicker::callb();
+	  set_title("Твой первый бонус!");
           break;
         case 100:
+	  set_title("С юбилеем!");
           clicker::callb();
           break;
+	case 500:
+	  set_title("ЧЕГОО?! 500!");
+	  clicker::callb();
+	  break;
       }
-      if ((200>a) && (a>=100)){
-        m_timeout_id = Glib::signal_timeout().connect(
-          sigc::mem_fun(*this, &clicker::on_timeout),
+      if ((200>a && a>=100)){
+        tid = Glib::signal_timeout().connect(
+          sigc::mem_fun(*this, &clicker::ont),
           1000
         );
       }
-      else if (a>200){
-        m_timeout_id = Glib::signal_timeout().connect(
-          sigc::mem_fun(*this, &clicker::on_timeout),
+      else if (500>a && a>=200){
+        tid = Glib::signal_timeout().connect(
+          sigc::mem_fun(*this, &clicker::ont),
           100
         );
+      }
+      else if (a>=500){
+	tid = Glib::signal_timeout().connect(
+	  sigc::mem_fun(*this, &clicker::ont),
+	  10
+	);
       }
     });
     label.set_label("GTK кликер!");
@@ -106,7 +121,7 @@ private:
   Gtk::Button button;
   Gtk::Label label;
   bonus* bon;
-  sigc::connection m_timeout_id;
+  sigc::connection tid;
 protected:
   Gtk::Box boox;
   void on_bonus_value_updated(const Glib::ustring& new_value_str) {
@@ -119,7 +134,7 @@ protected:
             bon = nullptr;
         }
     }
-  bool on_timeout() {
+  bool ont() {
         button.activate();
         return true;
     }
