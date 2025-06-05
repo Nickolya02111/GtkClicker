@@ -16,7 +16,9 @@ class bonus: public Gtk::Window {
 public:
   typedef sigc::signal<void, Glib::ustring> type_signal_value_updated;
   bonus(){
-    set_title("БОНУС");
+    set_titlebar(bar2);
+    bar2.set_title("БОНУС");
+    bar2.set_show_close_button(true);
     set_icon_from_file("./j.jpg");
     set_default_size(150,100);
     button1.set_label("БОНУС");
@@ -55,6 +57,7 @@ public:
         return m_signal_value_updated;
     }
 private:
+  Gtk::HeaderBar bar2;
   Gtk::Button button1;
   type_signal_value_updated m_signal_value_updated;
 };
@@ -63,14 +66,18 @@ class number: public Gtk::Window {
 public:
   typedef sigc::signal<void, Glib::ustring> type_signal_value_updated;
   number(){
-    set_title("Угадай число");
+    set_titlebar(bar1);
+    set_default_size(200,200);
+    booox.set_orientation(Gtk::ORIENTATION_VERTICAL);
+    bar1.set_title("Угадай число");
+    bar1.set_show_close_button(true);
     set_icon_from_file("./j.jpg");
     numg();
-    button2.set_label("Ответить.");
+    button2.set_label("Ответить!");
     lab.set_text("Угадай моё число");
     cout << x;
     booox.pack_start(lab, Gtk::EXPAND, Gtk::FILL, 0);
-    entry.set_placeholder_text("Введите ответ");
+    entry.set_placeholder_text("Введите ответ.......");
     booox.pack_start(button2, Gtk::EXPAND, Gtk::FILL, 0);
     booox.pack_start(entry, Gtk::EXPAND, Gtk::FILL, 0);
     button2.signal_clicked().connect([this](){
@@ -109,6 +116,7 @@ private:
     srand(time(NULL));
     x = rand();
   };
+  Gtk::HeaderBar bar1;
   Gtk::Box booox;
   Gtk::Button button2;
   Gtk::Label lab;
@@ -119,7 +127,10 @@ private:
 class clicker: public Gtk::Window {
 public:
   clicker(){
-    set_title("Clicker");
+
+    bar.set_title("Clicker");
+    bar.set_show_close_button(true);
+    set_titlebar(bar);
     set_icon_from_file("./j.jpg");
     set_default_size(300,250);
     boox.set_orientation(Gtk::ORIENTATION_VERTICAL);
@@ -145,7 +156,7 @@ public:
       if (30000 <= a){
         boox.pack_start(gtkpng, Gtk::EXPAND, Gtk::FILL, 0);
         show_all();
-        set_title("GTK!");
+        bar.set_title("GTK!");
       }
       ofstream ifile("save", ios::out);
       if (ifile.is_open()){
@@ -186,25 +197,25 @@ public:
       button2.set_label(to_string(a));
       switch (a){
         case 10:
-          set_title("ВАУ");
+          bar.set_title("ВАУ");
           break;
         case 25:
-          set_title("Больше!!!");
+          bar.set_title("Больше!!!");
           break;
         case 30:
           clicker::callb();
-	        set_title("Твой первый бонус!");
+	        bar.set_title("Твой первый бонус!");
           break;
         case 100:
-	        set_title("С юбилеем!");
+          bar.set_title("С юбилеем!");
           clicker::callb();
           break;
       	case 500:
-      	  set_title("ЧЕГОО?! 500!");
+      	  bar.set_title("ЧЕГОО?! 500!");
       	  clicker::callb();
       	  break;
         case 1500:
-          set_title("Ещё кнопка)");
+          bar.set_title("Ещё кнопка)");
           boox.pack_end(button2, Gtk::EXPAND, Gtk::FILL, 0);
           show_all();
       }
@@ -259,6 +270,7 @@ public:
   };
 private:
   GstElement* playbin = nullptr;
+  Gtk::HeaderBar bar;
   Gtk::Button button;
   Gtk::Button button2;
   Gtk::Button button3;
