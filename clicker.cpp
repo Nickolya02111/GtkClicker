@@ -4,6 +4,8 @@
 #include <gst/gst.h>
 #include <glib.h>
 #include <gio/gio.h>
+#include <iostream>
+#include <ctime>
 
 using namespace std;
 
@@ -57,19 +59,79 @@ private:
   type_signal_value_updated m_signal_value_updated;
 };
 
+class number: public Gtk::Window {
+public:
+  typedef sigc::signal<void, Glib::ustring> type_signal_value_updated;
+  number(){
+    set_title("Угадай число");
+    set_icon_from_file("./j.jpg");
+    numg();
+    button2.set_label("Ответить.");
+    lab.set_text("Угадай моё число");
+    cout << x;
+    booox.pack_start(lab, Gtk::EXPAND, Gtk::FILL, 0);
+    entry.set_placeholder_text("Введите ответ");
+    booox.pack_start(button2, Gtk::EXPAND, Gtk::FILL, 0);
+    booox.pack_start(entry, Gtk::EXPAND, Gtk::FILL, 0);
+    button2.signal_clicked().connect([this](){
+      Glib::ustring text = entry.get_text();
+      if (a < 2){
+        close();
+      }
+      else if (text > to_string(x)){
+        lab.set_text("Число больше");
+        a/=2;
+      }
+      else if (text < to_string(x)){
+        lab.set_text("Число меньше");
+        a/=2;
+      }
+      else{
+        a+=x;
+        close();
+      }
+      m_signal_value_updated.emit(std::to_string(a));
+      ofstream ifile("save", ios::out);
+      if (ifile.is_open()){
+        ifile << to_string(a);
+      }
+    });
+    add(booox);
+    show_all();
+  };
+  type_signal_value_updated signal_value_updated() {
+        return m_signal_value_updated;
+    }
+private:
+  int x;
+  Glib::ustring text;
+  void numg(){
+    srand(time(NULL));
+    x = rand();
+  };
+  Gtk::Box booox;
+  Gtk::Button button2;
+  Gtk::Label lab;
+  Gtk::Entry entry;
+  type_signal_value_updated m_signal_value_updated;
+};
+
 class clicker: public Gtk::Window {
 public:
   clicker(){
     set_title("Clicker");
     set_icon_from_file("./j.jpg");
-    set_default_size(250,200);
+    set_default_size(300,250);
     boox.set_orientation(Gtk::ORIENTATION_VERTICAL);
     add(boox);
     Glib::RefPtr<Gdk::Pixbuf> pixbuf = Gdk::Pixbuf::create_from_file("."
       "/gtk.png");
     gtkpng.set(pixbuf);
+    pb_control();
+    pb.set_show_text(true);
     button.set_label(to_string(a));
     button2.set_label(to_string(a));
+    button3.set_label("Угадай число");
     button2.signal_clicked().connect([this](){
       if (10000>a){
         a+=50;
@@ -83,7 +145,7 @@ public:
       if (30000 <= a){
         boox.pack_start(gtkpng, Gtk::EXPAND, Gtk::FILL, 0);
         show_all();
-        set_title("Кыцик!");
+        set_title("GTK!");
       }
       ofstream ifile("save", ios::out);
       if (ifile.is_open()){
@@ -92,12 +154,34 @@ public:
       button.set_label(to_string(a));
       button2.set_label(to_string(a));
     });
+    button3.signal_clicked().connect([this](){
+      calln();
+    });
     button.signal_clicked().connect([this](){
       a+=1;
+      pb_control();
       ofstream ifile("save", ios::out);
       if (ifile.is_open()){
         ifile << to_string(a);
       }
+      if (tid.connected()) {
+        tid.disconnect();
+      }
+      gchar* current_dir_c_str = g_get_current_dir();
+      gchar* full_local_path = g_build_filename(current_dir_c_str,
+        "click.wav", nullptr);
+      GFile* gfile = g_file_new_for_path(full_local_path);
+      gchar* file_uri = g_file_get_uri(gfile);
+      g_free(current_dir_c_str);
+      g_free(full_local_path);
+      g_object_unref(gfile);
+      if (playbin) {
+        gst_element_set_state(playbin, GST_STATE_NULL);
+        gst_object_unref(playbin);
+      }
+      playbin = gst_element_factory_make("playbin", "pb");
+      g_object_set(G_OBJECT(playbin), "uri", file_uri, NULL);
+      gst_element_set_state(playbin, GST_STATE_PLAYING);
       button.set_label(to_string(a));
       button2.set_label(to_string(a));
       switch (a){
@@ -124,28 +208,31 @@ public:
           boox.pack_end(button2, Gtk::EXPAND, Gtk::FILL, 0);
           show_all();
       }
+      if (a % 2000 == 0){
+        calln();
+      }
       if ((200>a && a>=100)){
         tid = Glib::signal_timeout().connect(
           sigc::mem_fun(*this, &clicker::ont),
-          1000
+          3000
         );
       }
       else if (500>a && a>=200){
         tid = Glib::signal_timeout().connect(
           sigc::mem_fun(*this, &clicker::ont),
-          100
+          2000
         );
       }
-      else if (a>=500){
-	     tid = Glib::signal_timeout().connect(
+      else if (1000>a && a>=500){
+       tid = Glib::signal_timeout().connect(
 	        sigc::mem_fun(*this, &clicker::ont),
-	        10
+          1000
 	     );
       }
       else if (a>=1000){
-	     tid = Glib::signal_timeout().connect(
+       tid = Glib::signal_timeout().connect(
 	        sigc::mem_fun(*this, &clicker::ont),
-	        1
+          50
 	     );
       }
       if (30000 <= a){
@@ -155,10 +242,12 @@ public:
       }
     });
     label.set_label("GTK кликер!");
+    boox.pack_start(pb, Gtk::EXPAND, Gtk::FILL, 0);
     boox.pack_start(label, Gtk::SHRINK, Gtk::SHRINK, 0);
     boox.pack_end(button, Gtk::EXPAND, Gtk::FILL, 0);
+    boox.pack_end(button3,Gtk::EXPAND, Gtk::FILL, 0);
     if (a>1500){
-      boox.pack_start(button2, Gtk::EXPAND, Gtk::FILL, 0);
+      boox.pack_end(button2, Gtk::EXPAND, Gtk::FILL, 0);
       label.set_label("GtkClicker x2");
     };
     if (a>=30000){
@@ -169,17 +258,47 @@ public:
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
   };
 private:
+  GstElement* playbin = nullptr;
   Gtk::Button button;
   Gtk::Button button2;
+  Gtk::Button button3;
+  Gtk::ProgressBar pb;
   Gtk::Label label;
   Gtk::Image gtkpng;
   bonus* bon;
+  number* num;
   sigc::connection tid;
 protected:
   Gtk::Box boox;
   void on_bonus_value_updated(const Glib::ustring& new_value_str) {
         button.set_label(new_value_str);
+        pb_control();
     }
+
+    void pb_control(){
+      switch (a){
+        case 1001 ... 1500:
+          pb.set_fraction(a/1500.00);
+          pb.set_text("!!!ВТОРАЯ КНОПКА!!!!");
+          break;
+        case 501 ... 1000:
+          pb.set_fraction(a*0.001);
+          pb.set_text("Королевский автоклик!");
+          break;
+        case 201 ... 500:
+          pb.set_text("Княжеский автоклик!");
+          pb.set_fraction(a/500.00);
+          break;
+        case 101 ... 200:
+          pb.set_text("Боярский автоклик!");
+          pb.set_fraction((a-100)*0.01);
+          break;
+        default:
+          pb.set_fraction(a*0.01);
+          pb.set_text("");
+          break;
+      }
+    };
 
     void on_bonus_window_hidden() {
         if (bon) {
@@ -187,6 +306,16 @@ protected:
             bon = nullptr;
         }
     }
+    void on_number_value_updated(const Glib::ustring& new_value_str) {
+          button.set_label(new_value_str);
+          pb_control();
+      }
+      void on_number_window_hidden() {
+          if (num) {
+              delete num;
+              bon = nullptr;
+          }
+      }
   bool ont() {
         button.activate();
         return true;
@@ -202,7 +331,44 @@ protected:
     bon ->  show();
     bon->set_transient_for(*this);
   }
+  void calln(){
+    num = new number();
+    num->signal_value_updated().connect(
+      sigc::mem_fun(*this, &clicker::on_number_value_updated)
+   );
+    num->signal_hide().connect(
+      sigc::mem_fun(*this, &clicker::on_number_window_hidden)
+    );
+    num ->  show();
+    num->set_transient_for(*this);
+  }
 };
+
+static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data) {
+    GstElement *pipeline = (GstElement*)data;
+
+    switch (GST_MESSAGE_TYPE(msg)) {
+        case GST_MESSAGE_EOS:
+            gst_element_seek_simple(pipeline, GST_FORMAT_TIME,
+              static_cast<GstSeekFlags>(GST_SEEK_FLAG_FLUSH |
+                 GST_SEEK_FLAG_KEY_UNIT), 0);
+            gst_element_set_state(pipeline, GST_STATE_PLAYING);
+            break;
+        case GST_MESSAGE_ERROR: {
+            GError *err;
+            gchar *debug;
+            gst_message_parse_error(msg, &err, &debug);
+            g_printerr("Error: %s\n", err->message);
+            g_error_free(err);
+            g_free(debug);
+            gst_element_set_state(pipeline, GST_STATE_NULL);
+            break;
+        }
+        default:
+            break;
+    }
+    return TRUE;
+}
 
 int main(int argc, char* argv[]) {
     gst_init(&argc, &argv);
@@ -213,9 +379,8 @@ int main(int argc, char* argv[]) {
     }
     a = stoi(b);
     gchar* current_dir_c_str = g_get_current_dir();
-    const char* audio_filename = "t.mp3";
     gchar* full_local_path = g_build_filename(current_dir_c_str,
-      audio_filename, nullptr);
+      "t.mp3", nullptr);
     GFile* gfile = g_file_new_for_path(full_local_path);
     gchar* file_uri = g_file_get_uri(gfile);
     gchar* launch_string = g_strdup_printf("playbin uri=%s", file_uri);
@@ -225,6 +390,10 @@ int main(int argc, char* argv[]) {
     g_free(file_uri);
     g_free(launch_string);
     g_object_unref(gfile);
+    GstBus *bus = gst_element_get_bus(pipeline);
+    gst_bus_add_watch(bus, bus_call, pipeline);
+    gst_object_unref(bus);
+    gst_element_set_state(pipeline, GST_STATE_PLAYING);
     auto app = Gtk::Application::create("org.example.simple");
     clicker windoww;
     return app->run(windoww);
