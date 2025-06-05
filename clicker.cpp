@@ -65,22 +65,23 @@ public:
     set_default_size(250,200);
     boox.set_orientation(Gtk::ORIENTATION_VERTICAL);
     add(boox);
-    Glib::RefPtr<Gdk::Pixbuf> pixbuf = Gdk::Pixbuf::create_from_file("./cat.jpg");
-    catpng.set(pixbuf);
+    Glib::RefPtr<Gdk::Pixbuf> pixbuf = Gdk::Pixbuf::create_from_file("."
+      "/gtk.png");
+    gtkpng.set(pixbuf);
     button.set_label(to_string(a));
     button2.set_label(to_string(a));
     button2.signal_clicked().connect([this](){
-      if (5000>a){
+      if (10000>a){
         a+=50;
       }
-      else if (10000> a){
+      else if (15000> a){
         a+=75;
       }
       else if (15000< a){
         a+=100;
       }
       if (30000 <= a){
-        boox.pack_start(catpng, Gtk::SHRINK, Gtk::SHRINK, 0);
+        boox.pack_start(gtkpng, Gtk::EXPAND, Gtk::FILL, 0);
         show_all();
         set_title("Кыцик!");
       }
@@ -148,9 +149,9 @@ public:
 	     );
       }
       if (30000 <= a){
-        boox.pack_start(catpng, Gtk::SHRINK, Gtk::SHRINK, 0);
+        boox.pack_start(gtkpng, Gtk::SHRINK, Gtk::SHRINK, 0);
         show_all();
-        set_title("Кыцик!");
+        set_title("GTK!");
       }
     });
     label.set_label("GTK кликер!");
@@ -161,7 +162,7 @@ public:
       label.set_label("GtkClicker x2");
     };
     if (a>=30000){
-      boox.pack_start(catpng, Gtk::SHRINK, Gtk::SHRINK, 0);
+      boox.pack_start(gtkpng, Gtk::SHRINK, Gtk::SHRINK, 0);
     }
     show_all();
 
@@ -171,7 +172,7 @@ private:
   Gtk::Button button;
   Gtk::Button button2;
   Gtk::Label label;
-  Gtk::Image catpng;
+  Gtk::Image gtkpng;
   bonus* bon;
   sigc::connection tid;
 protected:
