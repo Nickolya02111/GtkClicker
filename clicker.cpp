@@ -12,6 +12,124 @@ using namespace std;
 int a = 0;
 GstElement *pipeline = nullptr;
 
+class rbg: public Gtk::Window{
+public:
+  typedef sigc::signal<void, Glib::ustring> type_signal;
+  string ruletka(){
+    srand(time(NULL));
+    string z;
+    int x = 1 + rand() % 100;
+    switch (x){
+      case 1 ... 49:
+        return "red";
+        break;
+      case 50 ... 51:
+        return "green";
+        break;
+      case 52 ... 100:
+        return "black";
+        break;
+      default:
+        return "error";
+    };
+  }
+  rbg(){
+    set_titlebar(bar4);
+    bar4.set_title("Красное, Чёрное, Зелёное");
+    bar4.set_show_close_button(true);
+    set_icon_from_file("./j.jpg");
+    image.set("w.png");
+    buttonb.set_label("Чёрное");
+    buttong.set_label("Зелёное");
+    buttonr.set_label("Красное");
+    box4.set_orientation(Gtk::ORIENTATION_HORIZONTAL);
+    box3.set_orientation(Gtk::ORIENTATION_VERTICAL);
+    buttonb.signal_clicked().connect([this](){
+      if (ruletka() == "black"){
+        buttonb.set_label("Победа!");
+        a+=500;
+        image.set("b.png");
+        signal.emit(std::to_string(a));
+        ofstream ifile("save", ios::out);
+        if (ifile.is_open()){
+          ifile << to_string(a);
+        }
+      }
+      else{
+        buttonb.set_label("Чёрное");
+        a/=2;
+        image.set("w.png");
+        signal.emit(std::to_string(a));
+        ofstream ifile("save", ios::out);
+        if (ifile.is_open()){
+          ifile << to_string(a);
+        }
+      }
+    });
+    buttonr.signal_clicked().connect([this](){
+      if (ruletka() == "red"){
+        buttonr.set_label("Победа!");
+        a+=500;
+        image.set("r.png");
+        signal.emit(std::to_string(a));
+        ofstream ifile("save", ios::out);
+        if (ifile.is_open()){
+          ifile << to_string(a);
+        }
+      }
+      else{
+        buttonr.set_label("Красное");
+        a/=2;
+        image.set("w.png");
+        signal.emit(std::to_string(a));
+        ofstream ifile("save", ios::out);
+        if (ifile.is_open()){
+          ifile << to_string(a);
+        }
+      }
+    });
+    buttong.signal_clicked().connect([this](){
+      if (ruletka() == "green"){
+        buttong.set_label("Победа!");
+        a*=2;
+        image.set("g.png");
+        signal.emit(std::to_string(a));
+        ofstream ifile("save", ios::out);
+        if (ifile.is_open()){
+          ifile << to_string(a);
+        }
+      }
+      else{
+        buttong.set_label("Зелёное");
+        a/=2;
+        image.set("w.png");
+        signal.emit(std::to_string(a));
+        ofstream ifile("save", ios::out);
+        if (ifile.is_open()){
+          ifile << to_string(a);
+        }
+      }
+    });
+    box4.pack_start(buttonb, Gtk::EXPAND, Gtk::FILL, 0);
+    box4.pack_start(buttong, Gtk::EXPAND, Gtk::FILL, 0);
+    box4.pack_start(buttonr, Gtk::EXPAND, Gtk::FILL, 0);
+    box3.pack_start(image, Gtk::EXPAND, Gtk::FILL, 0);
+    box3.pack_start(box4, Gtk::EXPAND, Gtk::FILL, 0);
+    add(box3);
+    show_all();
+  }
+  type_signal signal_value_updated() {
+        return signal;
+    }
+private:
+  Gtk::Image image;
+  Gtk::Box box3;
+  Gtk::Box box4;
+  Gtk::HeaderBar bar4;
+  Gtk::Button buttonb,buttonr,buttong;
+  type_signal signal;
+};
+
 class bonus: public Gtk::Window {
 public:
   typedef sigc::signal<void, Glib::ustring> type_signal_value_updated;
@@ -39,7 +157,7 @@ public:
       	    a+=100;
       	    break;
           case (1500):
-            a+=100;
+            a+=300;
             break;
         }
       m_signal_value_updated.emit(std::to_string(a));
@@ -78,8 +196,8 @@ public:
     cout << x;
     booox.pack_start(lab, Gtk::EXPAND, Gtk::FILL, 0);
     entry.set_placeholder_text("Введите ответ.......");
-    booox.pack_start(button2, Gtk::EXPAND, Gtk::FILL, 0);
     booox.pack_start(entry, Gtk::EXPAND, Gtk::FILL, 0);
+    booox.pack_start(button2, Gtk::EXPAND, Gtk::FILL, 0);
     button2.signal_clicked().connect([this](){
       Glib::ustring text = entry.get_text();
       if (a < 2){
@@ -124,10 +242,28 @@ private:
   type_signal_value_updated m_signal_value_updated;
 };
 
+void show_aboutd(Gtk::Window& parent){
+  Gtk::AboutDialog about;
+  about.set_title("О программе");
+  about.set_program_name("GtkClicker");
+  about.set_version("Alpha2");
+  about.set_copyright("copyleft");
+  about.set_comments("Это просто кликер :)");
+  about.set_authors({"Nickolya02111"});
+  about.set_license("GPL-3");
+  auto logo = Gdk::Pixbuf::create_from_file("j.jpg");
+  about.set_logo(logo);
+  about.set_transient_for(parent);
+  about.set_modal(true);
+  about.run();
+}
+
 class clicker: public Gtk::Window {
 public:
   clicker(){
-
+    Gtk::Box* bsb = Gtk::manage(new Gtk::Box(Gtk::ORIENTATION_HORIZONTAL, 5));
+    menui.set_label("Угадайка");
+    menui2.set_label("КЧЗ");
     bar.set_title("Clicker");
     bar.set_show_close_button(true);
     set_titlebar(bar);
@@ -142,7 +278,30 @@ public:
     pb.set_show_text(true);
     button.set_label(to_string(a));
     button2.set_label(to_string(a));
-    button3.set_label("Угадай число");
+    button.add_events(Gdk::BUTTON_PRESS_MASK);
+    button2.add_events(Gdk::BUTTON_PRESS_MASK);
+    auto imagee = Gtk::make_managed<Gtk::Image>("q.png");
+    button4.set_image(*imagee);
+    button.signal_button_press_event().connect([this](GdkEventButton* event){
+      if (event->button == 3) {
+        menu.show_all();
+        menu.popup_at_pointer(reinterpret_cast<GdkEvent*>(event));
+        return true;
+      }
+      else{
+        return false;
+      }
+    });
+    button2.signal_button_press_event().connect([this](GdkEventButton* event){
+      if (event->button == 3) {
+        menu.show_all();
+        menu.popup_at_pointer(reinterpret_cast<GdkEvent*>(event));
+        return true;
+      }
+      else{
+        return false;
+      }
+    });
     button2.signal_clicked().connect([this](){
       if (10000>a){
         a+=50;
@@ -153,11 +312,17 @@ public:
       else if (15000< a){
         a+=100;
       }
-      if (30000 <= a){
-        boox.pack_start(gtkpng, Gtk::EXPAND, Gtk::FILL, 0);
-        show_all();
-        bar.set_title("GTK!");
+      if ((a>=10000) && !menu_has_menui2) {
+        menu.append(menui2);
+        menu_has_menui2 = true;
+        menu.show_all();
       }
+      if ((a>=30000) && (gtkpng.get_parent() != &boox)) {
+        boox.pack_start(gtkpng, Gtk::SHRINK, Gtk::SHRINK, 0);
+        show_all();
+        set_title("GTK!");
+      }
+      pb_control();
       ofstream ifile("save", ios::out);
       if (ifile.is_open()){
         ifile << to_string(a);
@@ -165,8 +330,14 @@ public:
       button.set_label(to_string(a));
       button2.set_label(to_string(a));
     });
-    button3.signal_clicked().connect([this](){
+    menui.signal_activate().connect([this](){
       calln();
+    });
+    menui2.signal_activate().connect([this](){
+      callrbg();
+    });
+    button4.signal_clicked().connect([this](){
+      show_aboutd(*this);
     });
     button.signal_clicked().connect([this](){
       a+=1;
@@ -186,10 +357,8 @@ public:
       g_free(current_dir_c_str);
       g_free(full_local_path);
       g_object_unref(gfile);
-      if (playbin) {
-        gst_element_set_state(playbin, GST_STATE_NULL);
-        gst_object_unref(playbin);
-      }
+      gst_element_set_state(playbin, GST_STATE_NULL);
+      gst_object_unref(playbin);
       playbin = gst_element_factory_make("playbin", "pb");
       g_object_set(G_OBJECT(playbin), "uri", file_uri, NULL);
       gst_element_set_state(playbin, GST_STATE_PLAYING);
@@ -246,17 +415,23 @@ public:
           50
 	     );
       }
-      if (30000 <= a){
+      if ((a>=10000) && !menu_has_menui2) {
+        menu.append(menui2);
+        menu_has_menui2 = true;
+        menu.show_all();
+      }
+      if ((a>=30000) && (gtkpng.get_parent() != &boox)) {
         boox.pack_start(gtkpng, Gtk::SHRINK, Gtk::SHRINK, 0);
         show_all();
         set_title("GTK!");
       }
     });
+    bar.pack_start(button4);
     label.set_label("GTK кликер!");
+    menu.append(menui);
     boox.pack_start(pb, Gtk::EXPAND, Gtk::FILL, 0);
     boox.pack_start(label, Gtk::SHRINK, Gtk::SHRINK, 0);
     boox.pack_end(button, Gtk::EXPAND, Gtk::FILL, 0);
-    boox.pack_end(button3,Gtk::EXPAND, Gtk::FILL, 0);
     if (a>1500){
       boox.pack_end(button2, Gtk::EXPAND, Gtk::FILL, 0);
       label.set_label("GtkClicker x2");
@@ -264,26 +439,37 @@ public:
     if (a>=30000){
       boox.pack_start(gtkpng, Gtk::SHRINK, Gtk::SHRINK, 0);
     }
-    show_all();
+    if(a>=10000){
+      menu_has_menui2 = true;
+      menu.append(menui2);
+    }
+    menu.show_all();
+    show_all_children();
 
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
   };
 private:
+  bool menu_has_menui2 = false;
   GstElement* playbin = nullptr;
+  Gtk::MenuItem menui;
+  Gtk::MenuItem menui2;
+  Gtk::Menu menu;
   Gtk::HeaderBar bar;
   Gtk::Button button;
   Gtk::Button button2;
-  Gtk::Button button3;
+  Gtk::Button button4;
   Gtk::ProgressBar pb;
   Gtk::Label label;
   Gtk::Image gtkpng;
   bonus* bon;
   number* num;
+  rbg* rbgw;
   sigc::connection tid;
 protected:
   Gtk::Box boox;
   void on_bonus_value_updated(const Glib::ustring& new_value_str) {
         button.set_label(new_value_str);
+        button2.set_label(new_value_str);
         pb_control();
     }
 
@@ -320,14 +506,26 @@ protected:
     }
     void on_number_value_updated(const Glib::ustring& new_value_str) {
           button.set_label(new_value_str);
+          button2.set_label(new_value_str);
           pb_control();
       }
-      void on_number_window_hidden() {
+    void on_number_window_hidden() {
           if (num) {
               delete num;
-              bon = nullptr;
+              num = nullptr;
           }
       }
+      void on_rbg_value_updated(const Glib::ustring& new_value_str) {
+            button.set_label(new_value_str);
+            button2.set_label(new_value_str);
+            pb_control();
+        }
+      void on_rbg_window_hidden() {
+            if (rbgw) {
+                delete rbgw;
+                rbgw = nullptr;
+            }
+          }
   bool ont() {
         button.activate();
         return true;
@@ -343,6 +541,7 @@ protected:
     bon ->  show();
     bon->set_transient_for(*this);
   }
+
   void calln(){
     num = new number();
     num->signal_value_updated().connect(
@@ -353,6 +552,18 @@ protected:
     );
     num ->  show();
     num->set_transient_for(*this);
+  }
+
+  void callrbg(){
+    rbgw = new rbg();
+    rbgw->signal_value_updated().connect(
+      sigc::mem_fun(*this, &clicker::on_rbg_value_updated)
+   );
+    rbgw->signal_hide().connect(
+      sigc::mem_fun(*this, &clicker::on_rbg_window_hidden)
+    );
+    rbgw ->  show();
+    rbgw->set_transient_for(*this);
   }
 };
 
@@ -380,7 +591,7 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data) {
             break;
     }
     return TRUE;
-}
+};
 
 int main(int argc, char* argv[]) {
     gst_init(&argc, &argv);
