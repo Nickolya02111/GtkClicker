@@ -12,6 +12,84 @@ using namespace std;
 int a = 0;
 GstElement *pipeline = nullptr;
 
+class lot: public Gtk::Window{
+public:
+  typedef sigc::signal<void, Glib::ustring> type_signal;
+  lot(){
+    set_titlebar(bar);
+    bar.set_title("Лотерея");
+    bar.set_show_close_button(true);
+    set_icon_from_file("j.png");
+    lab.set_text("50%-ничего\n30%-500\n15%-1000\n5%-5000\nЦена 500 кликов.");
+    but.set_label("Купить билет!");
+    box.set_orientation(Gtk::ORIENTATION_VERTICAL);
+    but.signal_clicked().connect([this](){
+      y = lotm();
+      if (a >= 500){
+        a-=500;
+        switch (y){
+          case 1:
+            lab.set_text("Проигрыш");
+            break;
+          case 2:
+            a+=500;
+            lab.set_text("+500");
+            break;
+          case 3:
+            a+=1000;
+            lab.set_text("+1000");
+            break;
+          case 4:
+            a+=5000;
+            lab.set_text("+5000");
+            break;
+        }
+        signal.emit(std::to_string(a));
+        ofstream ifile("save", ios::out);
+        if (ifile.is_open()){
+          ifile << to_string(a);
+        }
+      }
+      else{
+        lab.set_text("нужно 500");
+      }
+    });
+    box.pack_start(lab);
+    box.pack_start(but);
+    add(box);
+    show_all();
+  }
+  type_signal signal_value_updated(){
+        return signal;
+  }
+private:
+  int y;
+  Gtk::Box box;
+  Gtk::Label lab;
+  Gtk::Button but;
+  Gtk::HeaderBar bar;
+  type_signal signal;
+  int lotm(){
+    int x = 1+ rand() % 100;
+    switch (x){
+      case 1 ... 50:
+        return 1;
+        break;
+      case 51 ... 80:
+        return 2;
+        break;
+      case 81 ... 95:
+        return 3;
+        break;
+      case 96 ... 100:
+        return 4;
+        break;
+      default:
+        return 0;
+    }
+  }
+};
+
 class spin: public Gtk::Window{
 public:
   typedef sigc::signal<void, Glib::ustring> type_signal;
@@ -19,7 +97,7 @@ public:
     set_titlebar(bar);
     bar.set_title("Спин");
     bar.set_show_close_button(true);
-    set_icon_from_file("j.jpg");
+    set_icon_from_file("j.png");
     but.set_label("Крутануть");
     box1.set_orientation(Gtk::ORIENTATION_HORIZONTAL);
     box2.set_orientation(Gtk::ORIENTATION_HORIZONTAL);
@@ -33,7 +111,7 @@ public:
         pic(x2, a2);
         pic(x3, a3);
         if ((x1 == 3)&&(x2 == 3)&& (x3 == 3)){
-          a+=10000;
+          a+=50000;
           but.set_label("Победа");
         }
         else{
@@ -125,7 +203,7 @@ public:
     set_titlebar(bar4);
     bar4.set_title("Красное, Чёрное, Зелёное");
     bar4.set_show_close_button(true);
-    set_icon_from_file("./j.jpg");
+    set_icon_from_file("./j.png");
     image.set("w.png");
     buttonb.set_label("Чёрное");
     buttong.set_label("Зелёное");
@@ -225,7 +303,7 @@ public:
     set_titlebar(bar2);
     bar2.set_title("БОНУС");
     bar2.set_show_close_button(true);
-    set_icon_from_file("./j.jpg");
+    set_icon_from_file("./j.png");
     set_default_size(150,100);
     button1.set_label("БОНУС");
     button1.signal_clicked().connect([this](){
@@ -287,7 +365,7 @@ public:
     booox.set_orientation(Gtk::ORIENTATION_VERTICAL);
     bar1.set_title("Угадай число");
     bar1.set_show_close_button(true);
-    set_icon_from_file("./j.jpg");
+    set_icon_from_file("./j.png");
     numg();
     button2.set_label("Ответить!");
     lab.set_text("Угадай моё число");
@@ -349,7 +427,7 @@ void show_aboutd(Gtk::Window& parent){
   about.set_comments("Это просто кликер :)");
   about.set_authors({"Nickolya02111"});
   about.set_license("GPL-3");
-  auto logo = Gdk::Pixbuf::create_from_file("j.jpg");
+  auto logo = Gdk::Pixbuf::create_from_file("j.png");
   about.set_logo(logo);
   about.set_transient_for(parent);
   about.set_modal(true);
@@ -363,10 +441,11 @@ public:
     menui.set_label("Угадайка");
     menui2.set_label("КЧЗ");
     menui3.set_label("Спин");
+    menui4.set_label("Лотерея");
     bar.set_title("Clicker");
     bar.set_show_close_button(true);
     set_titlebar(bar);
-    set_icon_from_file("./j.jpg");
+    set_icon_from_file("./j.png");
     set_default_size(300,250);
     boox.set_orientation(Gtk::ORIENTATION_VERTICAL);
     add(boox);
@@ -483,6 +562,9 @@ public:
     menui3.signal_activate().connect([this](){
       calls();
     });
+    menui4.signal_activate().connect([this](){
+      calll();
+    });
     button4.signal_clicked().connect([this](){
       show_aboutd(*this);
     });
@@ -577,7 +659,7 @@ public:
       else if (a>=1000){
        tid = Glib::signal_timeout().connect(
 	        sigc::mem_fun(*this, &clicker::ont),
-          50
+          500
 	     );
       }
       if ((a>=500) && !menu_has_menui3) {
@@ -598,6 +680,7 @@ public:
     });
     bar.pack_start(button4);
     label.set_label("GTK кликер!");
+    menu.append(menui4);
     menu.append(menui);
     boox.pack_start(pb, Gtk::EXPAND, Gtk::FILL, 0);
     boox.pack_start(label, Gtk::SHRINK, Gtk::SHRINK, 0);
@@ -629,6 +712,7 @@ private:
   Gtk::MenuItem menui;
   Gtk::MenuItem menui2;
   Gtk::MenuItem menui3;
+  Gtk::MenuItem menui4;
   Gtk::Menu menu;
   Gtk::HeaderBar bar;
   Gtk::Button button;
@@ -641,6 +725,7 @@ private:
   number* num;
   rbg* rbgw;
   spin* s;
+  lot* l;
   sigc::connection tid;
 protected:
   Gtk::Box boox;
@@ -692,6 +777,17 @@ protected:
               num = nullptr;
           }
       }
+      void on_l_value_updated(const Glib::ustring& new_value_str) {
+            button.set_label(new_value_str);
+            button2.set_label(new_value_str);
+            pb_control();
+      }
+      void on_l_window_hidden() {
+            if (l) {
+                delete l;
+                l = nullptr;
+            }
+      }
       void on_rbg_value_updated(const Glib::ustring& new_value_str) {
             button.set_label(new_value_str);
             button2.set_label(new_value_str);
@@ -729,7 +825,17 @@ protected:
     bon ->  show();
     bon->set_transient_for(*this);
   }
-
+  void calll(){
+    l = new lot();
+    l->signal_value_updated().connect(
+      sigc::mem_fun(*this, &clicker::on_l_value_updated)
+   );
+    l->signal_hide().connect(
+      sigc::mem_fun(*this, &clicker::on_l_window_hidden)
+    );
+    l ->  show();
+    l->set_transient_for(*this);
+  }
   void calln(){
     num = new number();
     num->signal_value_updated().connect(
