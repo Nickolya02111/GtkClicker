@@ -6,11 +6,208 @@
 #include <gio/gio.h>
 #include <iostream>
 #include <ctime>
+#include <algorithm>
+#include "json.hpp"
+#ifdef _WIN32
+  #define UNICODE
+  #define _UNICODE
+  #include <gdk/gdkwin32.h>
+  #include <filesystem>
+  #include <windows.h>
+  #include <shellapi.h>
+  #define ID_TRAY_ICON 1001
+  #define WM_ACHIEVEMENT_NOTIFY (WM_USER + 100)
+#endif
 
+using json = nlohmann::json;
 using namespace std;
 
 int a = 0;
+vector<string> achievements = {};
 GstElement *pipeline = nullptr;
+
+#ifdef _WIN32
+  HWND hwndGlobal = nullptr;
+  HICON hAchievementIcon = NULL;
+  wstring utf8_to_wstring(const std::string& str) {
+    int size_needed = MultiByteToWideChar(CP_UTF8, 0, str.c_str(),
+      (int)str.length(), NULL, 0);
+    std::wstring wstrTo(size_needed, 0);
+    MultiByteToWideChar(CP_UTF8, 0, str.c_str(),
+      (int)str.length(), &wstrTo[0], size_needed);
+    return wstrTo;
+  }
+  HICON getAchievementIcon() {
+    static HICON hIcon = NULL;
+    if (hIcon == NULL) {
+        wchar_t exePathBuffer[MAX_PATH]{};
+        GetModuleFileNameW(nullptr, exePathBuffer, MAX_PATH);
+        std::filesystem::path exeDir = std::filesystem::path(exePathBuffer).
+          parent_path();
+        std::wstring iconPath = exeDir / L"j.ico";
+        if (std::filesystem::exists(iconPath)) {
+            hIcon = (HICON)LoadImageW(
+                NULL,
+                iconPath.c_str(),
+                IMAGE_ICON,
+                0, 0,
+                LR_LOADFROMFILE | LR_DEFAULTSIZE
+            );
+        }
+        if (hIcon == NULL) {
+            hIcon = LoadIconW(NULL, IDI_INFORMATION);
+        }
+    }
+    return hIcon;
+}
+  void cleanupAchievementNotification() {
+    NOTIFYICONDATA nid_cleanup = {};
+    nid_cleanup.cbSize = sizeof(NOTIFYICONDATA);
+    nid_cleanup.uID = ID_TRAY_ICON;
+    Shell_NotifyIcon(NIM_DELETE, &nid_cleanup);
+
+    HICON hIcon = getAchievementIcon();
+    if (hIcon != NULL) {
+        DestroyIcon(hIcon);
+    }
+  }
+  void initTrayIcon(HWND hwnd) {
+    hwndGlobal = hwnd;
+    NOTIFYICONDATAW nid = {};
+    nid.cbSize = sizeof(NOTIFYICONDATAW);
+    nid.hWnd = hwnd;
+    nid.uID = ID_TRAY_ICON;
+    nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP | NIF_INFO;
+    nid.uCallbackMessage = WM_ACHIEVEMENT_NOTIFY;
+    nid.hIcon = getAchievementIcon();
+    wcscpy_s(nid.szTip, L"GtkClicker");
+    Shell_NotifyIconW(NIM_ADD, &nid);
+    nid.uVersion = NOTIFYICON_VERSION_4;
+    Shell_NotifyIconW(NIM_SETVERSION, &nid);
+}
+#endif
+
+void achget(string achi) {
+  #ifdef _WIN32
+    if (!hwndGlobal) return;
+    NOTIFYICONDATA nid = {};
+    nid.cbSize = sizeof(NOTIFYICONDATA);
+    nid.hWnd = hwndGlobal;
+    nid.uID = ID_TRAY_ICON;
+    nid.uFlags = NIF_ICON | NIF_INFO;
+    nid.dwInfoFlags = NIIF_USER;
+    nid.hIcon = getAchievementIcon();
+    std::wstring wtitle = utf8_to_wstring("+Ачивка!");
+    std::wstring wmessage = utf8_to_wstring(achi);
+    wcsncpy_s(nid.szInfoTitle, wtitle.c_str(), ARRAYSIZE(nid.szInfoTitle));
+    wcsncpy_s(nid.szInfo, wmessage.c_str(), ARRAYSIZE(nid.szInfo));
+    Shell_NotifyIcon(NIM_MODIFY, &nid);
+  #else
+    auto app = Gtk::Application::get_default();
+    if (!app) return;
+    auto noti = Gio::Notification::create("+Ачивка");
+    noti->set_body(achi);
+    GFile* gfile = g_file_new_for_path("j.png");
+    GIcon* gicon = g_file_icon_new(gfile);
+    auto icon = Glib::RefPtr<Gio::Icon>(new Gio::Icon(gicon));
+    noti->set_icon(icon);
+    g_object_unref(gfile);
+    app->send_notification(noti);
+  #endif
+};
+
+void loadgame() {
+    ifstream inFile("save.json");
+    if (inFile.is_open()) {
+        json saveData;
+        inFile >> saveData;
+        inFile.close();
+        a = saveData["points"];
+        achievements = saveData["achievements"].get<vector<string>>();
+    }
+};
+void savegame() {
+    json saveData;
+    saveData["points"] = a;
+    saveData["achievements"] = achievements;
+    ofstream outFile("save.json");
+    outFile << saveData;
+    outFile.close();
+}
+
+class ach: public Gtk::Window{
+public:
+  ach(){
+    set_titlebar(bar);
+    bar.set_title("Достижения");
+    bar.set_show_close_button(true);
+    set_default_size(256,300);
+    sw.set_policy(Gtk::POLICY_NEVER, Gtk::POLICY_AUTOMATIC);
+    if (find(achievements.begin(), achievements.end(), "1click")
+       != achievements.end()){
+      c1.set("1click.png");
+      r1.add(c1);
+    }
+    if (find(achievements.begin(), achievements.end(), "500clicks")
+       != achievements.end()) {
+      c2.set("500clicks.png");
+      r2.add(c2);
+    }
+    if (find(achievements.begin(), achievements.end(), "minigame")
+       != achievements.end()) {
+      c3.set("minigame.png");
+      r3.add(c3);
+    }
+    if (find(achievements.begin(), achievements.end(), "lost")
+       != achievements.end()) {
+      c4.set("lost.png");
+      r4.add(c4);
+    }
+    if (find(achievements.begin(), achievements.end(), "winr")
+       != achievements.end()) {
+      c5.set("winr.png");
+      r5.add(c5);
+    }
+    if (find(achievements.begin(), achievements.end(), "1kclicks")
+       != achievements.end()) {
+      c6.set("1kclicks.png");
+      r6.add(c6);
+    }
+    if (find(achievements.begin(), achievements.end(), "zero")
+       != achievements.end()) {
+      c7.set("zero.png");
+      r7.add(c7);
+    }
+    lb.append(r1);
+    lb.append(r2);
+    lb.append(r3);
+    lb.append(r4);
+    lb.append(r5);
+    lb.append(r6);
+    lb.append(r7);
+    sw.add(lb);
+    add(sw);
+    show_all();
+  }
+private:
+  Gtk::HeaderBar bar;
+  Gtk::ListBox lb;
+  Gtk::ScrolledWindow sw;
+  Gtk::Image c1;
+  Gtk::ListBoxRow r1;
+  Gtk::Image c2;
+  Gtk::ListBoxRow r2;
+  Gtk::Image c3;
+  Gtk::ListBoxRow r3;
+  Gtk::Image c4;
+  Gtk::ListBoxRow r4;
+  Gtk::Image c5;
+  Gtk::ListBoxRow r5;
+  Gtk::Image c6;
+  Gtk::ListBoxRow r6;
+  Gtk::Image c7;
+  Gtk::ListBoxRow r7;
+};
 
 class lot: public Gtk::Window{
 public:
@@ -45,14 +242,11 @@ public:
             break;
         }
         signal.emit(std::to_string(a));
-        ofstream ifile("save", ios::out);
-        if (ifile.is_open()){
-          ifile << to_string(a);
-        }
       }
       else{
         lab.set_text("нужно 500");
       }
+      savegame();
     });
     box.pack_start(lab);
     box.pack_start(but);
@@ -113,6 +307,11 @@ public:
         if ((x1 == 3)&&(x2 == 3)&& (x3 == 3)){
           a+=50000;
           but.set_label("Победа");
+          if (!(find(achievements.begin(), achievements.end(), "winr")
+             != achievements.end())){
+            achievements.push_back("winr");
+            achget("НАША ЗАДАЧА ЛЮБЫМИ СХЕМАМИ\nОБМАНУТЬ ЭТУ РУЛЕТКУ!");
+          }
         }
         else{
           a-=500;
@@ -123,10 +322,7 @@ public:
         but.set_label("Нужно 500");
       }
       signal.emit(std::to_string(a));
-      ofstream ifile("save", ios::out);
-      if (ifile.is_open()){
-        ifile << to_string(a);
-      }
+      savegame();
     });
     box1.pack_start(a1);
     box1.pack_start(a2);
@@ -216,20 +412,14 @@ public:
         a+=500;
         image.set("b.png");
         signal.emit(std::to_string(a));
-        ofstream ifile("save", ios::out);
-        if (ifile.is_open()){
-          ifile << to_string(a);
-        }
+        savegame();
       }
       else{
         buttonb.set_label("Чёрное");
         a/=2;
         image.set("w.png");
         signal.emit(std::to_string(a));
-        ofstream ifile("save", ios::out);
-        if (ifile.is_open()){
-          ifile << to_string(a);
-        }
+        savegame();
       }
     });
     buttonr.signal_clicked().connect([this](){
@@ -238,20 +428,14 @@ public:
         a+=500;
         image.set("r.png");
         signal.emit(std::to_string(a));
-        ofstream ifile("save", ios::out);
-        if (ifile.is_open()){
-          ifile << to_string(a);
-        }
+        savegame();
       }
       else{
         buttonr.set_label("Красное");
         a/=2;
         image.set("w.png");
         signal.emit(std::to_string(a));
-        ofstream ifile("save", ios::out);
-        if (ifile.is_open()){
-          ifile << to_string(a);
-        }
+        savegame();
       }
     });
     buttong.signal_clicked().connect([this](){
@@ -260,20 +444,19 @@ public:
         a*=2;
         image.set("g.png");
         signal.emit(std::to_string(a));
-        ofstream ifile("save", ios::out);
-        if (ifile.is_open()){
-          ifile << to_string(a);
+        if (!(find(achievements.begin(), achievements.end(), "zero")
+          != achievements.end())){
+          achievements.push_back("zero");
+          achget("ВСЁ НА ЗЕРО!");
         }
+        savegame();
       }
       else{
         buttong.set_label("Зелёное");
         a/=2;
         image.set("w.png");
         signal.emit(std::to_string(a));
-        ofstream ifile("save", ios::out);
-        if (ifile.is_open()){
-          ifile << to_string(a);
-        }
+        savegame();
       }
     });
     box4.pack_start(buttonb, Gtk::EXPAND, Gtk::FILL, 0);
@@ -337,10 +520,7 @@ public:
             break;
         }
       m_signal_value_updated.emit(std::to_string(a));
-      ofstream ifile("save", ios::out);
-      if (ifile.is_open()){
-        ifile << to_string(a);
-      }
+      savegame();
       close();
     }
     });
@@ -392,10 +572,7 @@ public:
         close();
       }
       m_signal_value_updated.emit(std::to_string(a));
-      ofstream ifile("save", ios::out);
-      if (ifile.is_open()){
-        ifile << to_string(a);
-      }
+      savegame();
     });
     add(booox);
     show_all();
@@ -407,7 +584,6 @@ private:
   int x;
   Glib::ustring text;
   void numg(){
-    srand(time(NULL));
     x = rand();
   };
   Gtk::HeaderBar bar1;
@@ -437,7 +613,11 @@ void show_aboutd(Gtk::Window& parent){
 class clicker: public Gtk::Window {
 public:
   clicker(){
-    Gtk::Box* bsb = Gtk::manage(new Gtk::Box(Gtk::ORIENTATION_HORIZONTAL, 5));
+    signal_realize().connect([this]() {
+        #ifdef _WIN32
+        initWin32Tray();
+        #endif
+    });
     menui.set_label("Угадайка");
     menui2.set_label("КЧЗ");
     menui3.set_label("Спин");
@@ -456,6 +636,7 @@ public:
     pb.set_show_text(true);
     button.set_label(to_string(a));
     button2.set_label(to_string(a));
+    buttonach.set_label("Достижения");
     button.add_events(Gdk::BUTTON_PRESS_MASK);
     button2.add_events(Gdk::BUTTON_PRESS_MASK);
     auto imagee = Gtk::make_managed<Gtk::Image>("q.png");
@@ -546,12 +727,9 @@ public:
       g_object_set(G_OBJECT(playbin), "uri", file_uri, NULL);
       gst_element_set_state(playbin, GST_STATE_PLAYING);
       pb_control();
-      ofstream ifile("save", ios::out);
-      if (ifile.is_open()){
-        ifile << to_string(a);
-      }
       button.set_label(to_string(a));
       button2.set_label(to_string(a));
+      savegame();
     });
     menui.signal_activate().connect([this](){
       calln();
@@ -568,6 +746,9 @@ public:
     button4.signal_clicked().connect([this](){
       show_aboutd(*this);
     });
+    buttonach.signal_clicked().connect([this](){
+      callach();
+    });
     button.signal_clicked().connect([this](){
       time_t now = time(nullptr);
       tm* local_time = localtime(&now);
@@ -579,10 +760,6 @@ public:
         a+=2;
       }
       pb_control();
-      ofstream ifile("save", ios::out);
-      if (ifile.is_open()){
-        ifile << to_string(a);
-      }
       if (tid.connected()) {
         tid.disconnect();
       }
@@ -602,6 +779,13 @@ public:
       button.set_label(to_string(a));
       button2.set_label(to_string(a));
       switch (a){
+        case 1 ... 2:
+          if (!(find(achievements.begin(), achievements.end(), "1click")
+             != achievements.end())){
+            achievements.push_back("1click");
+            achget("Первый клик!");
+          }
+          break;
         case 10:
           bar.set_title("ВАУ");
           break;
@@ -616,7 +800,7 @@ public:
           bar.set_title("С юбилеем!");
           clicker::callb();
           break;
-      	case 500:
+        case 500:
       	  bar.set_title("ЧЕГОО?! 500!");
       	  clicker::callb();
       	  break;
@@ -655,17 +839,32 @@ public:
 	        sigc::mem_fun(*this, &clicker::ont),
           1000
 	     );
+       if (!(find(achievements.begin(), achievements.end(), "500clicks")
+          != achievements.end())){
+         achievements.push_back("500clicks");
+         achget("500 кликов!");
+       }
       }
       else if (a>=1000){
        tid = Glib::signal_timeout().connect(
 	        sigc::mem_fun(*this, &clicker::ont),
           500
 	     );
+       if (!(find(achievements.begin(), achievements.end(), "1kclicks")
+          != achievements.end())){
+         achievements.push_back("1kclicks");
+         achget("1к кликов!");
+       }
       }
       if ((a>=500) && !menu_has_menui3) {
         menu.append(menui3);
         menu_has_menui3 = true;
         menu.show_all();
+        if (!(find(achievements.begin(), achievements.end(), "minigame")
+          != achievements.end())){
+          achievements.push_back("minigame");
+          achget("Спин открыт!");
+        }
       }
       if ((a>=10000) && !menu_has_menui2) {
         menu.append(menui2);
@@ -677,7 +876,14 @@ public:
         show_all();
         set_title("GTK!");
       }
+      savegame();
     });
+    if ((find(achievements.begin(), achievements.end(), "minigame")
+      != achievements.end()) && (a<500) && !(find(achievements.begin(),
+        achievements.end(), "lost") != achievements.end())) {
+        achievements.push_back("lost");
+        achget("Почти с нуля");
+    }
     bar.pack_start(button4);
     label.set_label("GTK кликер!");
     menu.append(menui4);
@@ -685,6 +891,7 @@ public:
     boox.pack_start(pb, Gtk::EXPAND, Gtk::FILL, 0);
     boox.pack_start(label, Gtk::SHRINK, Gtk::SHRINK, 0);
     boox.pack_end(button, Gtk::EXPAND, Gtk::FILL, 0);
+    boox.pack_end(buttonach);
     if(a>=500){
       menu_has_menui3 = true;
       menu.append(menui3);
@@ -705,6 +912,16 @@ public:
 
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
   };
+#ifdef _WIN32
+  void initWin32Tray() {
+    GtkWidget* widget = GTK_WIDGET(gobj());
+    GdkWindow* gdk_window = gtk_widget_get_window(widget);
+    HWND hwnd = (HWND)gdk_win32_window_get_handle(gdk_window);
+    if (hwnd) {
+        initTrayIcon(hwnd);
+    }
+  }
+#endif
 private:
   bool menu_has_menui3 = false;
   bool menu_has_menui2 = false;
@@ -718,9 +935,11 @@ private:
   Gtk::Button button;
   Gtk::Button button2;
   Gtk::Button button4;
+  Gtk::Button buttonach;
   Gtk::ProgressBar pb;
   Gtk::Label label;
   Gtk::Image gtkpng;
+  ach* aa;
   bonus* bon;
   number* num;
   rbg* rbgw;
@@ -810,10 +1029,24 @@ protected:
                 s = nullptr;
             }
       }
+      void on_aa_window_hidden() {
+            if (aa) {
+                delete aa;
+                aa = nullptr;
+            }
+      }
   bool ont() {
         button.activate();
         return true;
     }
+  void callach(){
+    aa = new ach();
+    aa->signal_hide().connect(
+      sigc::mem_fun(*this, &clicker::on_aa_window_hidden)
+    );
+    aa ->  show();
+    aa->set_transient_for(*this);
+  }
   void callb(){
     bon = new bonus();
     bon->signal_value_updated().connect(
@@ -901,12 +1134,7 @@ static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data) {
 int main(int argc, char* argv[]) {
     srand(time(NULL));
     gst_init(&argc, &argv);
-    string b;
-    ifstream ifile("save", ios::in);
-    if (ifile.is_open()){
-      getline(ifile, b);
-    }
-    a = stoi(b);
+    loadgame();
     gchar* current_dir_c_str = g_get_current_dir();
     gchar* full_local_path = g_build_filename(current_dir_c_str,
       "t.mp3", nullptr);
@@ -923,7 +1151,22 @@ int main(int argc, char* argv[]) {
     gst_bus_add_watch(bus, bus_call, pipeline);
     gst_object_unref(bus);
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
-    auto app = Gtk::Application::create("org.example.simple");
+    auto app = Gtk::Application::create("org.example.simple",
+      Gio::APPLICATION_HANDLES_OPEN);
     clicker windoww;
+    #ifdef _WIN32
+      WNDCLASS wc = {};
+      wc.lpfnWndProc = DefWindowProc;
+      wc.hInstance = GetModuleHandle(nullptr);
+      wc.lpszClassName = L"GtkClickerMsgWindow";
+      RegisterClass(&wc);
+      HWND hMsgWindow = CreateWindow(wc.lpszClassName, nullptr, 0, 0,
+        0, 0, 0, HWND_MESSAGE, nullptr, nullptr, nullptr);
+      MSG msg;
+      while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+          TranslateMessage(&msg);
+          DispatchMessage(&msg);
+    }
+    #endif
     return app->run(windoww);
 }
