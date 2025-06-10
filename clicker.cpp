@@ -22,6 +22,7 @@
 using json = nlohmann::json;
 using namespace std;
 
+bool music = true;
 int a = 0;
 vector<string> achievements = {};
 GstElement *pipeline = nullptr;
@@ -87,6 +88,40 @@ GstElement *pipeline = nullptr;
 }
 #endif
 
+static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data) {
+    GstElement *pipeline = (GstElement*)data;
+
+    switch (GST_MESSAGE_TYPE(msg)) {
+        case GST_MESSAGE_EOS:
+            if (music) {
+               gst_element_seek_simple(pipeline, GST_FORMAT_TIME,
+                 static_cast<GstSeekFlags>(GST_SEEK_FLAG_FLUSH |
+                    GST_SEEK_FLAG_KEY_UNIT), 0);
+                    if (music) {
+                       gst_element_set_state(pipeline, GST_STATE_PLAYING);
+                   } else {
+                       gst_element_set_state(pipeline, GST_STATE_NULL);
+                   }
+           } else {
+               gst_element_set_state(pipeline, GST_STATE_NULL);
+           }
+           break;
+        case GST_MESSAGE_ERROR: {
+            GError *err;
+            gchar *debug;
+            gst_message_parse_error(msg, &err, &debug);
+            g_printerr("Error: %s\n", err->message);
+            g_error_free(err);
+            g_free(debug);
+            gst_element_set_state(pipeline, GST_STATE_NULL);
+            break;
+        }
+        default:
+            break;
+    }
+    return TRUE;
+};
+
 void achget(string achi) {
   #ifdef _WIN32
     if (!hwndGlobal) return;
@@ -124,12 +159,14 @@ void loadgame() {
         inFile.close();
         a = saveData["points"];
         achievements = saveData["achievements"].get<vector<string>>();
+        music = saveData["music"];
     }
 };
 void savegame() {
     json saveData;
     saveData["points"] = a;
     saveData["achievements"] = achievements;
+    saveData["music"] = music;
     ofstream outFile("save.json");
     outFile << saveData;
     outFile.close();
@@ -598,7 +635,7 @@ void show_aboutd(Gtk::Window& parent){
   Gtk::AboutDialog about;
   about.set_title("О программе");
   about.set_program_name("GtkClicker");
-  about.set_version("Alpha3");
+  about.set_version("Beta-1.0");
   about.set_copyright("copyleft");
   about.set_comments("Это просто кликер :)");
   about.set_authors({"Nickolya02111"});
@@ -618,6 +655,7 @@ public:
         initWin32Tray();
         #endif
     });
+    lb.set_text("Звук(Выкл/Вкл)");
     menui.set_label("Угадайка");
     menui2.set_label("КЧЗ");
     menui3.set_label("Спин");
@@ -628,6 +666,8 @@ public:
     set_icon_from_file("./j.png");
     set_default_size(300,250);
     boox.set_orientation(Gtk::ORIENTATION_VERTICAL);
+    boox2.set_orientation(Gtk::ORIENTATION_HORIZONTAL);
+    boox3.set_orientation(Gtk::ORIENTATION_VERTICAL);
     add(boox);
     Glib::RefPtr<Gdk::Pixbuf> pixbuf = Gdk::Pixbuf::create_from_file("."
       "/gtk.png");
@@ -641,6 +681,7 @@ public:
     button2.add_events(Gdk::BUTTON_PRESS_MASK);
     auto imagee = Gtk::make_managed<Gtk::Image>("q.png");
     button4.set_image(*imagee);
+    swt.set_active(music);
     button.signal_button_press_event().connect([this](GdkEventButton* event){
       if (event->button == 3) {
         menu.show_all();
@@ -660,6 +701,19 @@ public:
       else{
         return false;
       }
+    });
+    swt.property_active().signal_changed().connect([this]() {
+      music = swt.get_active();
+      if (music) {
+          GstStateChangeReturn ret = gst_element_set_state(pipeline,
+            GST_STATE_PLAYING);
+          g_printerr("Состояние пайплайна изменено на PLAYING. Код: %d\n", ret);
+      } else {
+          GstStateChangeReturn ret = gst_element_set_state(pipeline,
+            GST_STATE_NULL);
+          g_printerr("Состояние пайплайна изменено на NULL. Код: %d\n", ret);
+      }
+      savegame();
     });
     button2.signal_clicked().connect([this](){
       time_t now = time(nullptr);
@@ -713,19 +767,6 @@ public:
         show_all();
         set_title("GTK!");
       }
-      gchar* current_dir_c_str = g_get_current_dir();
-      gchar* full_local_path = g_build_filename(current_dir_c_str,
-        "click.wav", nullptr);
-      GFile* gfile = g_file_new_for_path(full_local_path);
-      gchar* file_uri = g_file_get_uri(gfile);
-      g_free(current_dir_c_str);
-      g_free(full_local_path);
-      g_object_unref(gfile);
-      gst_element_set_state(playbin, GST_STATE_NULL);
-      gst_object_unref(playbin);
-      playbin = gst_element_factory_make("playbin", "pb");
-      g_object_set(G_OBJECT(playbin), "uri", file_uri, NULL);
-      gst_element_set_state(playbin, GST_STATE_PLAYING);
       pb_control();
       button.set_label(to_string(a));
       button2.set_label(to_string(a));
@@ -763,19 +804,6 @@ public:
       if (tid.connected()) {
         tid.disconnect();
       }
-      gchar* current_dir_c_str = g_get_current_dir();
-      gchar* full_local_path = g_build_filename(current_dir_c_str,
-        "click.wav", nullptr);
-      GFile* gfile = g_file_new_for_path(full_local_path);
-      gchar* file_uri = g_file_get_uri(gfile);
-      g_free(current_dir_c_str);
-      g_free(full_local_path);
-      g_object_unref(gfile);
-      gst_element_set_state(playbin, GST_STATE_NULL);
-      gst_object_unref(playbin);
-      playbin = gst_element_factory_make("playbin", "pb");
-      g_object_set(G_OBJECT(playbin), "uri", file_uri, NULL);
-      gst_element_set_state(playbin, GST_STATE_PLAYING);
       button.set_label(to_string(a));
       button2.set_label(to_string(a));
       switch (a){
@@ -891,7 +919,11 @@ public:
     boox.pack_start(pb, Gtk::EXPAND, Gtk::FILL, 0);
     boox.pack_start(label, Gtk::SHRINK, Gtk::SHRINK, 0);
     boox.pack_end(button, Gtk::EXPAND, Gtk::FILL, 0);
-    boox.pack_end(buttonach);
+    boox3.pack_end(swt);
+    boox3.pack_end(lb);
+    boox2.pack_end(boox3);
+    boox2.pack_end(buttonach);
+    boox.pack_end(boox2);
     if(a>=500){
       menu_has_menui3 = true;
       menu.append(menui3);
@@ -910,7 +942,11 @@ public:
     menu.show_all();
     show_all_children();
 
-    gst_element_set_state(pipeline, GST_STATE_PLAYING);
+    if (music) {
+      gst_element_set_state(pipeline, GST_STATE_PLAYING);
+    } else {
+      gst_element_set_state(pipeline, GST_STATE_NULL);
+    }
   };
 #ifdef _WIN32
   void initWin32Tray() {
@@ -926,6 +962,7 @@ private:
   bool menu_has_menui3 = false;
   bool menu_has_menui2 = false;
   GstElement* playbin = nullptr;
+  Gtk::Switch swt;
   Gtk::MenuItem menui;
   Gtk::MenuItem menui2;
   Gtk::MenuItem menui3;
@@ -938,6 +975,7 @@ private:
   Gtk::Button buttonach;
   Gtk::ProgressBar pb;
   Gtk::Label label;
+  Gtk::Label lb;
   Gtk::Image gtkpng;
   ach* aa;
   bonus* bon;
@@ -948,6 +986,8 @@ private:
   sigc::connection tid;
 protected:
   Gtk::Box boox;
+  Gtk::Box boox2;
+  Gtk::Box boox3;
   void on_bonus_value_updated(const Glib::ustring& new_value_str) {
         button.set_label(new_value_str);
         button2.set_label(new_value_str);
@@ -1105,36 +1145,10 @@ protected:
   }
 };
 
-static gboolean bus_call(GstBus *bus, GstMessage *msg, gpointer data) {
-    GstElement *pipeline = (GstElement*)data;
-
-    switch (GST_MESSAGE_TYPE(msg)) {
-        case GST_MESSAGE_EOS:
-            gst_element_seek_simple(pipeline, GST_FORMAT_TIME,
-              static_cast<GstSeekFlags>(GST_SEEK_FLAG_FLUSH |
-                 GST_SEEK_FLAG_KEY_UNIT), 0);
-            gst_element_set_state(pipeline, GST_STATE_PLAYING);
-            break;
-        case GST_MESSAGE_ERROR: {
-            GError *err;
-            gchar *debug;
-            gst_message_parse_error(msg, &err, &debug);
-            g_printerr("Error: %s\n", err->message);
-            g_error_free(err);
-            g_free(debug);
-            gst_element_set_state(pipeline, GST_STATE_NULL);
-            break;
-        }
-        default:
-            break;
-    }
-    return TRUE;
-};
-
 int main(int argc, char* argv[]) {
     srand(time(NULL));
-    gst_init(&argc, &argv);
     loadgame();
+    gst_init(&argc, &argv);
     gchar* current_dir_c_str = g_get_current_dir();
     gchar* full_local_path = g_build_filename(current_dir_c_str,
       "t.mp3", nullptr);
@@ -1150,7 +1164,6 @@ int main(int argc, char* argv[]) {
     GstBus *bus = gst_element_get_bus(pipeline);
     gst_bus_add_watch(bus, bus_call, pipeline);
     gst_object_unref(bus);
-    gst_element_set_state(pipeline, GST_STATE_PLAYING);
     auto app = Gtk::Application::create("org.example.simple",
       Gio::APPLICATION_HANDLES_OPEN);
     clicker windoww;
